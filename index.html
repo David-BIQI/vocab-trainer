@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Vocab Trainer — to be kobe (Zero Build)</title>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18 UMD + ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="icon" href="data:;base64,=">
+  <style>
+    .active-press:active { transform: scale(0.99); }
+    @keyframes pop {
+      0% { transform: scale(0.7); opacity: 0; }
+      20% { transform: scale(1.1); opacity: 1; }
+      80% { transform: scale(1.0); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0; }
+    }
+    .animate-pop { animation: pop 1.2s ease-out forwards; }
+    @keyframes confetti-fall {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-900">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    const LS = {
+      QUESTIONS: "vocab_questions_v1",
+      WRONG: "vocab_wrong_v1",
+      STATS: "vocab_stats_v1",
+      SETTINGS: "vocab_settings_v1",
+    };
+
+    function dayKey(d = new Date()) {
+      const tz = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - tz * 60000).toISOString().slice(0, 10);
+      return local;
+    }
+
+    function loadSettings() {
+      const def = { shuffle: true, autoNext: false, mode: "all" };
+      try {
+        const raw = localStorage.getItem(LS.SETTINGS);
+        return raw ? { ...def, ...JSON.parse(raw) } : def;
+      } catch { return def; }
+    }
+    function saveSettings(s) { localStorage.setItem(LS.SETTINGS, JSON.stringify(s)); }
+
+    function loadQuestions() {
+      try {
+        const raw = localStorage.getItem(LS.QUESTIONS);
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    }
+    function saveQuestions(qs) { localStorage.setItem(LS.QUESTIONS, JSON.stringify(qs)); }
+
+    function loadWrong() {
+      try {
+        const raw = localStorage.getItem(LS.WRONG);
+        return new Set(raw ? JSON.parse(raw) : []);
+      } catch { return new Set(); }
+    }
+    function saveWrong(set) { localStorage.setItem(LS.WRONG, JSON.stringify(Array.from(set))); }
+
+    function loadStats() {
+      try {
+        const raw = localStorage.getItem(LS.STATS);
+        return raw ? JSON.parse(raw) : {};
+      } catch { return {}; }
+    }
+    function saveStats(s) { localStorage.setItem(LS.STATS, JSON.stringify(s)); }
+
+    const headerMap = {
+      "No.": ["序号","编号","ID","id","No.","no","NO"],
+      "Question": ["问题","题干","Question","question"],
+      "Option A": ["选项A","A","A选项","a","Option A"],
+      "Option B": ["选项B","B","B选项","b","Option B"],
+      "Option C": ["选项C","C","C选项","c","Option C"],
+      "Option D": ["选项D","D","D选项","d","Option D"],
+      "Answer": ["答案","正确答案","Answer","answer"],
+      "Explanation": ["说明","解析","解释","Explain","备注","explain","note","Explanation"],
+    };
+
+    function buildHeaderIndex(headerRow) {
+      const idx = {};
+      const lower = headerRow.map(x => (x == null ? "" : String(x).trim()));
+      for (const [canon, aliases] of Object.entries(headerMap)) {
+        for (let i = 0; i < lower.length; i++) {
+          const cell = lower[i];
+          if (aliases.some(a => a.toLowerCase() === cell.toLowerCase())) {
+            idx[canon] = i; break;
+          }
+        }
+      }
+      return idx;
+    }
+
+    function normalizeAnswer(ans) {
+      if (!ans && ans !== 0) return "";
+      const s = String(ans).trim().toUpperCase();
+      if (["A","B","C","D"].includes(s)) return s;
+      if (s.startsWith("A")) return "A";
+      if (s.startsWith("B")) return "B";
+      if (s.startsWith("C")) return "C";
+      if (s.startsWith("D")) return "D";
+      return "";
+    }
+
+    function parseSheetToQuestions(ws) {
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
+      if (!rows || !rows.length) return [];
+      const header = rows[0];
+      const idx = buildHeaderIndex(header);
+      const out = [];
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r] || [];
+        const id = row[idx["No."]] ?? r;
+        const q = (row[idx["Question"]] ?? "").toString().trim();
+        if (!q) continue;
+        const A = (row[idx["Option A"]] ?? "").toString();
+        const B = (row[idx["Option B"]] ?? "").toString();
+        const C = (row[idx["Option C"]] ?? "").toString();
+        const D = (row[idx["Option D"]] ?? "").toString();
+        const answer = normalizeAnswer(row[idx["Answer"]]);
+        const explain = (row[idx["Explanation"]] ?? "").toString();
+        if (!answer) continue;
+        out.push({ id: String(id), q, A, B, C, D, answer, explain });
+      }
+      return out;
+    }
+
+    function downloadTemplate() {
+      const data = [
+        ["No.","Question","Option A","Option B","Option C","Option D","Answer","Explanation"],
+        [1,"What does 'benevolent' mean?","kind; charitable","warlike; belligerent","tedious; lengthy","cautious; careful","A","Root bene- means 'good', e.g., benefit"],
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+      XLSX.writeFile(wb, "vocab-template.xlsx");
+    }
+
+    function exportWrongToExcel(wrongSet, all) {
+      const wrongList = all.filter(q => wrongSet.has(q.id));
+      if (!wrongList.length) { alert("No wrong items to export."); return; }
+      const data = [
+        ["No.","Question","Option A","Option B","Option C","Option D","Answer","Explanation"],
+        ...wrongList.map((q,i)=>[i+1,q.q,q.A,q.B,q.C,q.D,q.answer,q.explain||""]),
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Wrong Set");
+      XLSX.writeFile(wb, `wrong-set_${dayKey()}.xlsx`);
+    }
+
+    function prettyPercent(num, den) {
+      if (!den) return "0%";
+      return `${Math.round((num / den) * 100)}%`;
+    }
+
+    function IconBadge({ children, gradient }) {
+      const cls = gradient || "from-cyan-500 to-blue-500";
+      return (
+        <span className={"w-6 h-6 rounded-full text-white text-[13px] flex items-center justify-center bg-gradient-to-br " + cls}>
+          {children}
+        </span>
+      );
+    }
+
+    function App() {
+      const [settings, setSettings] = useState(loadSettings());
+      const [questions, setQuestions] = useState(loadQuestions());
+      const [wrongSet, setWrongSet] = useState(loadWrong());
+      const [stats, setStats] = useState(loadStats());
+
+      // Reward overlay
+      const rewardWords = ["Excellent!", "Outstanding!", "Genius!", "Brilliant!", "Superb!", "Spectacular!", "Legendary!", "Top-notch!", "To be kobe!"];
+      const [reward, setReward] = useState(null);
+      const [burstKey, setBurstKey] = useState(0);
+
+      const today = dayKey();
+      const todayStat = stats[today] || { ok: 0, fail: 0 };
+
+      const workingSet = React.useMemo(() => {
+        const base = settings.mode === "wrong" ? questions.filter(q => wrongSet.has(q.id)) : questions;
+        const arr = base.slice();
+        if (settings.shuffle) {
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+        }
+        return arr;
+      }, [questions, wrongSet, settings.mode, settings.shuffle]);
+
+      const [idx, setIdx] = useState(0);
+      const [selected, setSelected] = useState(null); // 'A'|'B'|'C'|'D'|null
+      const [result, setResult] = useState(null);     // 'ok'|'fail'|null
+
+      const cur = workingSet[idx] || null;
+
+      useEffect(()=>{ setIdx(0); setSelected(null); setResult(null); }, [workingSet.length]);
+      useEffect(()=>{ localStorage.setItem(LS.SETTINGS, JSON.stringify(settings)); }, [settings]);
+      useEffect(()=>{ localStorage.setItem(LS.QUESTIONS, JSON.stringify(questions)); }, [questions]);
+      useEffect(()=>{ localStorage.setItem(LS.WRONG, JSON.stringify(Array.from(wrongSet))); }, [wrongSet]);
+      useEffect(()=>{ localStorage.setItem(LS.STATS, JSON.stringify(stats)); }, [stats]);
+
+      function importExcel(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: "array" });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const parsed = parseSheetToQuestions(ws);
+            if (!parsed.length) {
+              alert("No valid questions parsed. Please check the header matches the template.");
+              return;
+            }
+            const qmap = new Map();
+            parsed.forEach((q, i) => {
+              const id = q.id || String(i + 1);
+              qmap.set(String(id), { ...q, id: String(id) });
+            });
+            const list = Array.from(qmap.values());
+            setQuestions(list);
+            setWrongSet(new Set());
+            setIdx(0); setSelected(null); setResult(null);
+          } catch (err) {
+            console.error(err);
+            alert("Import failed: " + (err?.message || "Unknown error"));
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function updateToday(success) {
+        const k = dayKey();
+        const s = { ...(stats[k] || { ok: 0, fail: 0 }) };
+        if (success) s.ok++; else s.fail++;
+        setStats({ ...stats, [k]: s });
+      }
+
+      function triggerReward() {
+        const word = rewardWords[Math.floor(Math.random() * rewardWords.length)];
+        setReward(word);
+        setBurstKey(burstKey + 1);
+        setTimeout(() => setReward(null), 1200);
+      }
+
+      function onSelect(letter) {
+        if (!cur || selected) return;
+        const correct = letter === cur.answer;
+        setSelected(letter);
+        setResult(correct ? "ok" : "fail");
+        updateToday(correct);
+        setWrongSet(prev => {
+          const copy = new Set(prev);
+          if (correct) copy.delete(cur.id); else copy.add(cur.id);
+          return copy;
+        });
+        if (correct) triggerReward();
+        if (settings.autoNext) {
+          setTimeout(() => next(), 700);
+        }
+      }
+
+      function next() {
+        if (idx >= workingSet.length - 1) { setIdx(0); }
+        else { setIdx(idx + 1); }
+        setSelected(null); setResult(null);
+      }
+
+      function resetAll() {
+        if (!confirm("Are you sure to clear ALL data (questions / wrong set / statistics)?")) return;
+        setQuestions([]); setWrongSet(new Set()); setStats({});
+        setIdx(0); setSelected(null); setResult(null);
+      }
+
+      useEffect(() => {
+        if (questions.length === 0) {
+          setQuestions([
+            { id: "1", q: "What is the meaning of 'meticulous'?", A: "careless", B: "careful and precise", C: "swift", D: "generous", answer: "B", explain: "Doing things with great attention to detail." },
+            { id: "2", q: "Which word is closest in meaning to 'alleviate'?", A: "worsen", B: "ignore", C: "relieve", D: "describe", answer: "C", explain: "alleviate = make (suffering) less severe." },
+          ]);
+        }
+      }, []);
+
+      const last7 = useMemo(() => {
+        const arr = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const k = dayKey(d);
+          const s = stats[k] || { ok: 0, fail: 0 };
+          arr.push({ k, ...s });
+        }
+        return arr;
+      }, [stats]);
+
+      const totalAnswered = (todayStat.ok || 0) + (todayStat.fail || 0);
+      const accuracy = prettyPercent(todayStat.ok, totalAnswered);
+      const fileRef = useRef(null);
+
+      const confettiColors = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#22c55e","#06b6d4"];
+      const confettiPieces = Array.from({ length: 26 }).map((_, i) => ({
+        left: Math.round(Math.random() * 100),
+        delay: Math.round(Math.random() * 150),
+        duration: 800 + Math.round(Math.random() * 900),
+        size: 6 + Math.round(Math.random() * 6),
+        color: confettiColors[i % confettiColors.length],
+        rotate: Math.round(Math.random() * 360),
+      }));
+
+      return (
+        <div className="flex flex-col items-center">
+          {/* Reward overlay */}
+          {reward && (
+            <div className="fixed inset-0 z-50 pointer-events-none">
+              <div className="absolute inset-0 overflow-hidden" key={burstKey}>
+                {confettiPieces.map((p, i) => (
+                  <span key={i}
+                    style={{
+                      position: "absolute",
+                      top: "-10px",
+                      left: p.left + "%",
+                      width: p.size + "px",
+                      height: p.size + "px",
+                      backgroundColor: p.color,
+                      transform: `rotate(${p.rotate}deg)`,
+                      animation: `confetti-fall ${p.duration}ms ease-out ${p.delay}ms forwards`,
+                      borderRadius: (i % 3 === 0) ? "50%" : "2px",
+                      opacity: 0.9,
+                    }}/>
+                ))}
+              </div>
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="animate-pop text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 via-amber-500 to-emerald-500 drop-shadow">
+                  {reward}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <header className="w-full sticky top-0 z-10 backdrop-blur bg-white/70 border-b border-slate-200">
+            <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-sky-500 to-cyan-400 text-white flex items-center justify-center shadow-sm">📘</span>
+                <div className="leading-tight">
+                  <h1 className="text-lg font-bold">Vocab Trainer</h1>
+                  <div className="text-[11px] text-slate-500">by <span className="font-semibold">to be kobe</span></div>
+                </div>
+              </div>
+              <div className="text-right text-xs leading-4">
+                <div className="font-semibold">Today: {todayStat.ok}✅ / {todayStat.fail}❌</div>
+                <div className="text-slate-500">Accuracy {accuracy}</div>
+              </div>
+            </div>
+          </header>
+
+          <main className="w-full max-w-md px-4 pb-28 pt-4">
+            {/* Import / Actions */}
+            <section className="mb-4 grid grid-cols-3 gap-2">
+              <button
+                className="col-span-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white py-2 text-sm active-press shadow-sm"
+                onClick={() => fileRef.current?.click()}
+              >
+                <IconBadge gradient="from-emerald-500 to-teal-500">⬆️</IconBadge>
+                Import
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) importExcel(f);
+                  e.currentTarget.value = "";
+                }}
+              />
+
+              <button
+                className="col-span-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white py-2 text-sm active-press shadow-sm"
+                onClick={downloadTemplate}
+              >
+                <IconBadge gradient="from-sky-500 to-indigo-500">📥</IconBadge>
+                Template
+              </button>
+
+              <button
+                className="col-span-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white py-2 text-sm active-press shadow-sm"
+                onClick={() => exportWrongToExcel(wrongSet, questions)}
+              >
+                <IconBadge gradient="from-rose-500 to-pink-500">🐛</IconBadge>
+                Wrong Set
+              </button>
+            </section>
+
+            {/* Settings */}
+            <section className="mb-4 grid grid-cols-3 gap-2 text-sm">
+              <button
+                className={(settings.shuffle ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300") + " flex items-center justify-center gap-2 rounded-2xl border py-2 active-press shadow-sm"}
+                onClick={() => setSettings((s) => ({ ...s, shuffle: !s.shuffle }))}
+              >
+                <IconBadge gradient="from-violet-500 to-fuchsia-500">🔀</IconBadge>
+                Shuffle
+              </button>
+              <button
+                className={(settings.mode === "wrong" ? "bg-rose-600 text-white border-rose-600" : "bg-white border-slate-300") + " flex items-center justify-center gap-2 rounded-2xl border py-2 active-press shadow-sm"}
+                onClick={() => setSettings((s) => ({ ...s, mode: s.mode === "wrong" ? "all" : "wrong" }))}
+              >
+                <IconBadge gradient="from-amber-500 to-orange-500">📈</IconBadge>
+                {settings.mode === "wrong" ? "All" : "Wrong"}
+              </button>
+              <button
+                className={(settings.autoNext ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-slate-300") + " flex items-center justify-center gap-2 rounded-2xl border py-2 active-press shadow-sm"}
+                onClick={() => setSettings((s) => ({ ...s, autoNext: !s.autoNext }))}
+              >
+                <IconBadge gradient="from-cyan-500 to-teal-500">⚙️</IconBadge>
+                Auto Next
+              </button>
+            </section>
+
+            {/* Question Card */}
+            <section className="mb-4">
+              <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-2 text-xs text-slate-500">
+                  <div>Question {workingSet.length ? idx + 1 : 0} / {workingSet.length}</div>
+                  <div>Total: {questions.length}</div>
+                </div>
+
+                {cur ? (
+                  <>
+                    <div className="text-base leading-relaxed font-medium mb-3">{cur.q}</div>
+                    <div className="space-y-2">
+                      {["A","B","C","D"].map((k)=>{
+                        const label = cur[k] || "";
+                        if (!label) return null;
+                        const chosen = selected === k;
+                        const isCorrect = cur.answer === k;
+                        const state = selected ? (isCorrect ? "correct" : chosen ? "wrong" : "idle") : "idle";
+                        const cls = state === "correct" ? "border-emerald-600 bg-emerald-50"
+                                  : state === "wrong" ? "border-rose-600 bg-rose-50"
+                                  : "border-slate-300 bg-white hover:bg-slate-50";
+                        return (
+                          <button key={k}
+                            className={"w-full text-left rounded-2xl border p-3 active-press transition " + cls}
+                            onClick={()=>onSelect(k)} disabled={!!selected}>
+                            <div className="flex items-start gap-2">
+                              <div className="mt-0.5 w-5 h-5 flex items-center justify-center rounded-full border text-xs font-bold">{k}</div>
+                              <div className="flex-1 leading-relaxed">{label}</div>
+                              {selected && cur.answer === k && (<span className="text-base">✅</span>)}
+                              {selected && selected === k && cur.answer !== k && (<span className="text-base">❌</span>)}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {selected && (
+                      <div className={"mt-3 rounded-2xl border p-3 text-sm " + (result === "ok" ? "border-emerald-600 bg-emerald-50" : "border-rose-600 bg-rose-50")}>
+                        {result === "ok" ? "Correct!" : "Incorrect. Correct answer: " + cur.answer}
+                        {cur.explain && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer select-none">Show Explanation</summary>
+                            <div className="mt-1 text-slate-700 leading-relaxed whitespace-pre-wrap">{cur.explain}</div>
+                          </details>
+                        )}
+                        <div className="mt-2 flex gap-2">
+                          <button className="flex-1 rounded-xl bg-slate-900 text-white py-2 active-press" onClick={next}>Next</button>
+                          <button className="flex-1 rounded-xl border border-slate-300 bg-white py-2 active-press" onClick={()=>{ setSelected(null); setResult(null); }}>
+                            Retry
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center text-slate-500 py-16">
+                    <div className="mb-2">No questions yet. Click <b>Import</b> above.</div>
+                    <div className="text-xs">Supports .xlsx (first row is header): No. / Question / Option A / Option B / Option C / Option D / Answer / Explanation</div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* 7-day Overview */}
+            <section className="mb-4">
+              <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-3 text-sm font-semibold">
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center">📊</span>
+                  Last 7 Days
+                </div>
+                <div className="flex items-end justify-between gap-2 h-24">
+                  {last7.map((d) => {
+                    const total = (d.ok || 0) + (d.fail || 0);
+                    const ratio = total === 0 ? 0 : d.ok / total;
+                    const h = Math.round(12 + ratio * 80);
+                    return (
+                      <div key={d.k} className="flex-1 flex flex-col items-center gap-1">
+                        <div className="w-full rounded-t-xl bg-slate-200" style={{ height: h + "px" }}></div>
+                        <div className="text-[10px] text-slate-500">{d.k.slice(5)}</div>
+                        <div className="text-[10px] text-slate-500">{total} items</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="mb-24">
+              <button
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border border-rose-300 bg-white py-2 text-sm active-press shadow-sm"
+                onClick={resetAll}
+              >
+                <IconBadge gradient="from-rose-500 to-pink-500">♻️</IconBadge>
+                Reset All Data
+              </button>
+            </section>
+          </main>
+
+          <footer className="fixed bottom-0 w-full bg-white border-t border-slate-200">
+            <div className="max-w-md mx-auto px-4 py-2 text-center text-[11px] text-slate-500">
+              Data stored locally (localStorage). — <span className="font-medium">to be kobe</span>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

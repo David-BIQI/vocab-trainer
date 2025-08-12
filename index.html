@@ -430,13 +430,13 @@
 
       // Auto Next：仅在非 Shuffle 下启用；快照校验 + 防抖
       clearTimeout(autoTimer);
-      if (settings.autoNext && !settings.shuffle){
+      if (settings.autoNext && !settings.shuffle && correct) {
         const snapCursor = session.cursor, snapId = cur.id;
         autoTimer = setTimeout(() => {
-          if (session.cursor === snapCursor && currentQuestion()?.id === snapId){
+          if (session.cursor === snapCursor && currentQuestion()?.id === snapId) {
             next();
           }
-        }, 750);
+        }, 3000); // 2s
       }
       renderHeader();
     }

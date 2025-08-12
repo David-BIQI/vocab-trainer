@@ -3,545 +3,512 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Vocab Trainer — to be kobe (Zero Build)</title>
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React 18 UMD + ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel for JSX -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- SheetJS (XLSX) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="icon" href="data:;base64,=">
+  <title>Vocab Trainer — to be kobe (Offline .xlsx, Single HTML)</title>
   <style>
-    .active-press:active { transform: scale(0.99); }
-    @keyframes pop {
-      0% { transform: scale(0.7); opacity: 0; }
-      20% { transform: scale(1.1); opacity: 1; }
-      80% { transform: scale(1.0); opacity: 1; }
-      100% { transform: scale(0.9); opacity: 0; }
-    }
-    .animate-pop { animation: pop 1.2s ease-out forwards; }
-    @keyframes confetti-fall {
-      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
-    }
+    :root{ --bd:#e5e7eb; --txt:#0f172a; --muted:#64748b; }
+    *{box-sizing:border-box} html,body{margin:0;padding:0;background:linear-gradient(#fff,#f8fafc);color:var(--txt);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .container{max-width:760px;margin:0 auto;padding:12px 16px 96px}
+    header{position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--bd);z-index:10}
+    header .row{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:760px;margin:0 auto;padding:10px 16px}
+    h1{font-size:18px;margin:0}
+    .badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:10px;color:#fff;background:linear-gradient(135deg,#6366f1,#06b6d4);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+    .card{background:#fff;border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:14px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .btn{border:1px solid var(--bd);background:#fff;border-radius:14px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+    .btn:active{transform:scale(.99)}
+    .btn.primary{background:#0f172a;color:#fff;border-color:#0f172a}
+    .opt{width:100%;text-align:left;border:1px solid var(--bd);border-radius:14px;padding:10px}
+    .opt.correct{background:#ecfdf5;border-color:#059669}
+    .opt.wrong{background:#fef2f2;border-color:#dc2626}
+    .muted{color:var(--muted);font-size:12px}
+    .row{display:flex;align-items:center;justify-content:space-between}
+    .gap{display:flex;gap:8px}
+    .hidden{display:none}
+    .bar{height:100px;display:flex;gap:8px;align-items:flex-end;justify-content:space-between}
+    .bar>div{flex:1;background:#e2e8f0;border-radius:8px 8px 0 0}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--bd);font-size:12px}
+    .icon{width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;color:#fff}
+    .i1{background:linear-gradient(135deg,#22c55e,#06b6d4)} .i2{background:linear-gradient(135deg,#3b82f6,#8b5cf6)} .i3{background:linear-gradient(135deg,#ef4444,#f97316)}
+    @keyframes pop{0%{transform:scale(.7);opacity:0}20%{transform:scale(1.1);opacity:1}80%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:0}}
+    .reward{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:50}
+    .reward .text{font-size:34px;font-weight:800;animation:pop 1.1s ease-out forwards;background:linear-gradient(90deg,#ec4899,#f59e0b,#22c55e);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 1px 2px rgba(0,0,0,.08)}
+    @keyframes fall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+    .fav { cursor:pointer; user-select:none; font-size:18px; }
+    .fav.on { color:#f59e0b; text-shadow:0 1px 2px rgba(0,0,0,.08); }
+    .toolbar { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-b from-white to-slate-50 text-slate-900">
-  <div id="root"></div>
+<body>
+  <header>
+    <div class="row">
+      <div class="gap">
+        <span class="badge">📘</span>
+        <div>
+          <h1>Vocab Trainer <span class="muted">— to be kobe</span></h1>
+          <div class="muted">Single HTML · Offline .xlsx/CSV</div>
+        </div>
+      </div>
+      <div class="muted" id="todayStat"></div>
+    </div>
+  </header>
 
-  <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
+  <div class="container">
+    <section class="toolbar">
+      <button class="btn" id="btnImport"><span class="icon i1">⬆️</span>Import</button>
+      <input type="file" id="file" class="hidden" accept=".xlsx,.csv,.json" />
+      <button class="btn" id="btnTemplate"><span class="icon i2">📥</span>Template</button>
+      <button class="btn" id="btnMode"><span class="icon i3">🔁</span><span id="modeLabel">Mode: All</span></button>
+    </section>
 
-    const LS = {
-      QUESTIONS: "vocab_questions_v1",
-      WRONG: "vocab_wrong_v1",
-      STATS: "vocab_stats_v1",
-      SETTINGS: "vocab_settings_v1",
+    <section class="grid-3" style="margin-top:8px">
+      <button class="btn" id="btnShuffle">🔀 Shuffle: OFF</button>
+      <button class="btn" id="btnAuto">⚙️ Auto Next: OFF</button>
+      <button class="btn" id="btnReset">♻️ Reset</button>
+    </section>
+
+    <section style="margin-top:10px">
+      <div class="card">
+        <div class="row muted" style="margin-bottom:6px">
+          <div id="qPos">Question 0/0</div>
+          <div>Total: <span id="qTotal">0</span></div>
+        </div>
+
+        <div class="row" style="align-items:center; gap:8px;">
+          <div id="qText" style="font-size:16px;font-weight:600;flex:1;min-height:40px">No questions yet. Click <b>Import</b> above.</div>
+          <div id="favBtn" class="fav" title="Toggle favorite">☆</div>
+        </div>
+
+        <div id="opts" class="gap" style="flex-direction:column; margin-top:8px;"></div>
+
+        <div id="resultBox" class="hidden" style="margin-top:10px">
+          <div id="resultText" class="pill">—</div>
+          <div id="expBlock" class="card" style="margin-top:8px; padding:10px; border-radius:12px;">
+            <div class="muted" style="margin-bottom:6px">Explanation</div>
+            <div id="expText"></div>
+          </div>
+          <div class="gap" style="margin-top:8px">
+            <button class="btn" id="btnPrev">⟵ Prev</button>
+            <button class="btn primary" id="btnNext">Next ⟶</button>
+            <button class="btn" id="btnRetry">Retry</button>
+            <button class="btn" id="btnJump">🔎 Jump</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-top:10px">
+      <div class="card">
+        <div class="gap" style="align-items:center;margin-bottom:6px">
+          <span class="icon i2">📊</span><b>Last 7 Days</b>
+        </div>
+        <div id="bar" class="bar"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="reward" class="reward hidden">
+    <div id="confetti"></div>
+    <div class="text" id="rewardText">Excellent!</div>
+  </div>
+
+  <script>
+    const td = new TextDecoder("utf-8");
+    function readU16(dv, off){ return dv.getUint16(off, true); }
+    function readU32(dv, off){ return dv.getUint32(off, true); }
+    function findEOCDR(bytes){ for (let i = bytes.length - 22; i >= 0 && i >= bytes.length - 65536 - 22; i--) {
+        if (bytes[i]===0x50 && bytes[i+1]===0x4b && bytes[i+2]===0x05 && bytes[i+3]===0x06) return i; } return -1; }
+    async function inflateRaw(u8){
+      if (!('DecompressionStream' in self)) throw new Error("DecompressionStream not supported in this browser.");
+      const ds = new DecompressionStream('deflate-raw');
+      const stream = new Blob([u8]).stream().pipeThrough(ds);
+      const ab = await new Response(stream).arrayBuffer();
+      return new Uint8Array(ab);
+    }
+    async function unzip(bytes){
+      const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const eocdr = findEOCDR(bytes);
+      if (eocdr < 0) throw new Error("Invalid ZIP: EOCDR not found.");
+      const cdSize = readU32(dv, eocdr + 12);
+      const cdOffset = readU32(dv, eocdr + 16);
+      const files = {}; let p = cdOffset;
+      while (p < cdOffset + cdSize){
+        if (dv.getUint32(p, true) !== 0x02014b50) break;
+        const compMethod = readU16(dv, p + 10);
+        const compSize = readU32(dv, p + 20);
+        const nameLen = readU16(dv, p + 28);
+        const extraLen = readU16(dv, p + 30);
+        const commentLen = readU16(dv, p + 32);
+        const localHeaderRelOff = readU32(dv, p + 42);
+        const name = td.decode(bytes.subarray(p + 46, p + 46 + nameLen));
+        p += 46 + nameLen + extraLen + commentLen;
+        let q = localHeaderRelOff;
+        if (readU32(dv, q) !== 0x04034b50) throw new Error("Invalid ZIP: LFH missing.");
+        const lfCompMethod = readU16(dv, q + 8);
+        const lfNameLen = readU16(dv, q + 26);
+        const lfExtraLen = readU16(dv, q + 28);
+        const dataStart = q + 30 + lfNameLen + lfExtraLen;
+        const comp = bytes.subarray(dataStart, dataStart + compSize);
+        let content;
+        if (compMethod === 0 || lfCompMethod === 0) content = comp;
+        else if (compMethod === 8 || lfCompMethod === 8) content = await inflateRaw(comp);
+        else throw new Error("Unsupported compression method: " + compMethod);
+        files[name] = content;
+      }
+      return files;
+    }
+    function xml(str){ return new DOMParser().parseFromString(str, "application/xml"); }
+    function sharedStringsFromXML(xmlDoc){
+      const list = []; const si = Array.from(xmlDoc.getElementsByTagName("si"));
+      si.forEach(node => { let text = ""; const tnodes = node.getElementsByTagName("t");
+        for (let i=0;i<tnodes.length;i++){ text += tnodes[i].textContent || ""; } list.push(text); });
+      return list;
+    }
+    function parseCellRef(ref){ let c=0,r=0,i=0; while (i<ref.length && /[A-Z]/i.test(ref[i])){ c=c*26+(ref[i].toUpperCase().charCodeAt(0)-64); i++; } r=parseInt(ref.slice(i),10); return {col:c,row:r}; }
+    function sheetTo2DArray(xmlDoc, sst){
+      const sheetData = xmlDoc.getElementsByTagName("sheetData")[0]; if (!sheetData) return [];
+      const rows=[]; const rowNodes = Array.from(sheetData.getElementsByTagName("row"));
+      rowNodes.forEach(rowNode => {
+        const cells = Array.from(rowNode.getElementsByTagName("c")); if (cells.length===0) return;
+        let maxCol=0; const temp={};
+        cells.forEach(cn => { const r=cn.getAttribute("r")||""; const t=cn.getAttribute("t")||""; const { col } = parseCellRef(r); if (col>maxCol) maxCol=col;
+          let val=""; const v=cn.getElementsByTagName("v")[0];
+          if (t==="s"){ const idx=v?parseInt(v.textContent||"0",10):0; val=sst[idx]||""; }
+          else if (t==="inlineStr"){ const is=cn.getElementsByTagName("is")[0]; const tn=is?is.getElementsByTagName("t")[0]:null; val=tn?tn.textContent||"":""; }
+          else { val = v ? v.textContent || "" : ""; }
+          temp[col]=val; });
+        const arr=[]; for (let c=1;c<=maxCol;c++){ arr.push(temp[c]||""); } rows.push(arr);
+      });
+      return rows;
+    }
+    async function readXLSXToRows(file){
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const files = await unzip(buf);
+      const wbx = files["xl/workbook.xml"]; if (!wbx) throw new Error("workbook.xml not found");
+      const wb = xml(td.decode(wbx));
+      const sheets = wb.getElementsByTagName("sheet"); if (!sheets.length) throw new Error("no sheets");
+      const firstSheet = sheets[0];
+      const relId = firstSheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id") || firstSheet.getAttribute("r:id");
+      let sheetPath = "xl/worksheets/sheet1.xml";
+      const relsBin = files["xl/_rels/workbook.xml.rels"];
+      if (relsBin){ const rels = xml(td.decode(relsBin));
+        const rs = Array.from(rels.getElementsByTagName("Relationship"));
+        const found = rs.find(n => n.getAttribute("Id") === relId);
+        if (found){ let target = found.getAttribute("Target") || "";
+          if (target && !target.startsWith("xl/")) target = "xl/" + target.replace(/^\.\//,""); sheetPath = target; } }
+      const sstBin = files["xl/sharedStrings.xml"]; const sst = sstBin ? sharedStringsFromXML(xml(td.decode(sstBin))) : [];
+      const sheetBin = files[sheetPath]; if (!sheetBin) throw new Error("worksheet not found: " + sheetPath);
+      const sheet = xml(td.decode(sheetBin)); const rows = sheetTo2DArray(sheet, sst); return rows;
+    }
+
+    const LS = { QUESTIONS:"vocab_questions_v1", WRONG:"vocab_wrong_v1", STATS:"vocab_stats_v1", SETTINGS:"vocab_settings_v1", FAV:"vocab_fav_v1" };
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const dayKey = (d=new Date()) => { const tz=d.getTimezoneOffset(); return new Date(d.getTime()-tz*60000).toISOString().slice(0,10); };
+    const rewardWords = ["Excellent!","Outstanding!","Genius!","Brilliant!","Superb!","Spectacular!","Legendary!","Top-notch!","To be kobe!"];
+
+    let settings = load(LS.SETTINGS, { shuffle:false, autoNext:false, mode:"all" });
+    let questions = load(LS.QUESTIONS, []);
+    let wrongSet = new Set(load(LS.WRONG, []));
+    let favSet = new Set(load(LS.FAV, []));
+    let stats = load(LS.STATS, {});
+
+    let session = { ids: [], cursor: 0 };
+    let selected = null;
+
+    if (questions.length === 0) {
+      questions = [
+        { id:"1", q:"What is the meaning of 'meticulous'?", A:"careless", B:"careful and precise", C:"swift", D:"generous", answer:"B", explain:"Doing things with great attention to detail."},
+        { id:"2", q:"Which word is closest in meaning to 'alleviate'?", A:"worsen", B:"ignore", C:"relieve", D:"describe", answer:"C", explain:"alleviate = make (suffering) less severe." },
+      ];
+      persist(LS.QUESTIONS, questions);
+    }
+
+    rebuildSession({ preserveCurrent:false });
+    renderAll();
+
+    $("#btnImport").onclick = () => $("#file").click();
+    $("#file").onchange = async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      try {
+        let rows = [];
+        if (f.name.toLowerCase().endsWith(".xlsx")) rows = await readXLSXToRows(f);
+        else if (/\.(csv|txt)$/i.test(f.name)) rows = parseCSV(await f.text());
+        else if (/\.(json)$/i.test(f.name)) {
+          const arr = JSON.parse(await f.text()); const keys = Object.keys(arr[0] || {});
+          rows = [keys, ...arr.map(o => keys.map(k => o[k] ?? ""))];
+        } else { alert("Unsupported file format. Use .xlsx / .csv / .json"); return; }
+        const mapped = normalizeQuestions(rows);
+        if (!mapped.length) { alert("No valid rows found. Check header."); return; }
+        questions = uniqueById(mapped); wrongSet = new Set(); favSet = new Set();
+        persist(LS.QUESTIONS, questions); persist(LS.WRONG, Array.from(wrongSet)); persist(LS.FAV, Array.from(favSet));
+        rebuildSession({ preserveCurrent:false }); selected = null; renderAll();
+      } catch (err){ console.error(err); alert("Import failed: " + (err && err.message ? err.message : err)); }
+      finally { e.target.value = ""; }
     };
 
-    function dayKey(d = new Date()) {
-      const tz = d.getTimezoneOffset();
-      const local = new Date(d.getTime() - tz * 60000).toISOString().slice(0, 10);
-      return local;
-    }
-
-    function loadSettings() {
-      const def = { shuffle: true, autoNext: false, mode: "all" };
-      try {
-        const raw = localStorage.getItem(LS.SETTINGS);
-        return raw ? { ...def, ...JSON.parse(raw) } : def;
-      } catch { return def; }
-    }
-    function saveSettings(s) { localStorage.setItem(LS.SETTINGS, JSON.stringify(s)); }
-
-    function loadQuestions() {
-      try {
-        const raw = localStorage.getItem(LS.QUESTIONS);
-        return raw ? JSON.parse(raw) : [];
-      } catch { return []; }
-    }
-    function saveQuestions(qs) { localStorage.setItem(LS.QUESTIONS, JSON.stringify(qs)); }
-
-    function loadWrong() {
-      try {
-        const raw = localStorage.getItem(LS.WRONG);
-        return new Set(raw ? JSON.parse(raw) : []);
-      } catch { return new Set(); }
-    }
-    function saveWrong(set) { localStorage.setItem(LS.WRONG, JSON.stringify(Array.from(set))); }
-
-    function loadStats() {
-      try {
-        const raw = localStorage.getItem(LS.STATS);
-        return raw ? JSON.parse(raw) : {};
-      } catch { return {}; }
-    }
-    function saveStats(s) { localStorage.setItem(LS.STATS, JSON.stringify(s)); }
-
-    const headerMap = {
-      "No.": ["序号","编号","ID","id","No.","no","NO"],
-      "Question": ["问题","题干","Question","question"],
-      "Option A": ["选项A","A","A选项","a","Option A"],
-      "Option B": ["选项B","B","B选项","b","Option B"],
-      "Option C": ["选项C","C","C选项","c","Option C"],
-      "Option D": ["选项D","D","D选项","d","Option D"],
-      "Answer": ["答案","正确答案","Answer","answer"],
-      "Explanation": ["说明","解析","解释","Explain","备注","explain","note","Explanation"],
+    $("#btnTemplate").onclick = () => {
+      const header = ["No.","Question","Option A","Option B","Option C","Option D","Answer","Explanation"];
+      const row = [1,"What does 'benevolent' mean?","kind; charitable","warlike; belligerent","tedious; lengthy","cautious; careful","A","Root bene- means 'good'"];
+      const csv = toCSV([header,row]); download(csv, "vocab-template.csv", "text/csv");
     };
 
-    function buildHeaderIndex(headerRow) {
-      const idx = {};
-      const lower = headerRow.map(x => (x == null ? "" : String(x).trim()));
-      for (const [canon, aliases] of Object.entries(headerMap)) {
-        for (let i = 0; i < lower.length; i++) {
-          const cell = lower[i];
-          if (aliases.some(a => a.toLowerCase() === cell.toLowerCase())) {
-            idx[canon] = i; break;
-          }
+    $("#btnMode").onclick = () => {
+      settings.mode = settings.mode === "all" ? "wrong" : settings.mode === "wrong" ? "fav" : "all";
+      persist(LS.SETTINGS, settings);
+      rebuildSession({ preserveCurrent:false });
+      renderAll();
+    };
+
+    $("#btnShuffle").onclick = () => {
+      settings.shuffle = !settings.shuffle; persist(LS.SETTINGS, settings);
+      rebuildSession({ preserveCurrent:false });
+      renderAll();
+    };
+
+    $("#btnAuto").onclick = () => {
+      settings.autoNext = !settings.autoNext; persist(LS.SETTINGS, settings); renderAll();
+    };
+
+    $("#btnReset").onclick = () => {
+      if (!confirm("Clear all data (questions/wrong/fav/stats)?")) return;
+      questions = []; wrongSet = new Set(); favSet = new Set(); stats = {};
+      persist(LS.QUESTIONS, questions); persist(LS.WRONG, Array.from(wrongSet)); persist(LS.FAV, Array.from(favSet)); persist(LS.STATS, stats);
+      rebuildSession({ preserveCurrent:false }); selected = null; renderAll();
+    };
+
+    $("#btnNext").onclick = () => { next(); };
+    $("#btnPrev").onclick = () => { prev(); };
+    $("#btnRetry").onclick = () => { selected = null; renderQuestion(); };
+    $("#btnJump").onclick = () => {
+      if (!session.ids.length) return;
+      const n = prompt(`Jump to which index? (1..${session.ids.length})`);
+      const v = parseInt(n, 10);
+      if (!isNaN(v) && v>=1 && v<=session.ids.length){
+        session.cursor = v - 1; selected = null; renderQuestion();
+      }
+    };
+
+    $("#favBtn").onclick = () => {
+      const cur = currentQuestion();
+      if (!cur) return;
+      if (favSet.has(cur.id)) favSet.delete(cur.id); else favSet.add(cur.id);
+      persist(LS.FAV, Array.from(favSet));
+      updateFavUI();
+      if (settings.mode === "fav" && !favSet.has(cur.id)){
+        // stay until Next
+      }
+    };
+
+    function computeModeIds(){
+      if (settings.mode === "all") return questions.map(q=>q.id);
+      if (settings.mode === "wrong") return questions.filter(q=>wrongSet.has(q.id)).map(q=>q.id);
+      return questions.filter(q=>favSet.has(q.id)).map(q=>q.id);
+    }
+    function shuffleInPlace(arr){ for (let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
+    function rebuildSession({ preserveCurrent }){
+      const curId = currentQuestion()?.id || null;
+      const ids = computeModeIds();
+      if (settings.shuffle) shuffleInPlace(ids);
+      session.ids = ids;
+      if (preserveCurrent && curId){ const k = session.ids.indexOf(curId); session.cursor = k >=0 ? k : 0; }
+      else session.cursor = 0;
+    }
+    function step(delta){
+      if (!session.ids.length) return;
+      let i = session.cursor;
+      const total = session.ids.length;
+      for (let attempt=0; attempt<total; attempt++){
+        i = (i + delta + total) % total;
+        const id = session.ids[i];
+        if ((settings.mode==="all") ||
+            (settings.mode==="wrong" && wrongSet.has(id)) ||
+            (settings.mode==="fav" && favSet.has(id))){
+          session.cursor = i; selected = null; renderQuestion(); return;
         }
       }
-      return idx;
+      rebuildSession({ preserveCurrent:false }); selected=null; renderQuestion();
+    }
+    function next(){ step(+1); }
+    function prev(){ step(-1); }
+    function currentQuestion(){
+      if (!session.ids.length) return null;
+      const id = session.ids[session.cursor];
+      return questions.find(q => q.id === id) || null;
     }
 
-    function normalizeAnswer(ans) {
-      if (!ans && ans !== 0) return "";
-      const s = String(ans).trim().toUpperCase();
-      if (["A","B","C","D"].includes(s)) return s;
-      if (s.startsWith("A")) return "A";
-      if (s.startsWith("B")) return "B";
-      if (s.startsWith("C")) return "C";
-      if (s.startsWith("D")) return "D";
-      return "";
+    function renderAll(){
+      renderHeader(); renderQuestion(); renderChart();
+      $("#btnShuffle").innerHTML = settings.shuffle ? "🔀 Shuffle: ON" : "🔀 Shuffle: OFF";
+      $("#btnAuto").innerHTML = settings.autoNext ? "⚙️ Auto Next: ON" : "⚙️ Auto Next: OFF";
+      $("#modeLabel").textContent = "Mode: " + (settings.mode==="all"?"All":settings.mode==="wrong"?"Wrong":"Fav");
     }
 
-    function parseSheetToQuestions(ws) {
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
+    function renderHeader(){
+      const k = keyToday(); const s = stats[k] || { ok:0, fail:0 };
+      const total = s.ok + s.fail; const acc = total ? Math.round(s.ok/total*100) : 0;
+      $("#todayStat").textContent = `Today: ${s.ok}✅ / ${s.fail}❌ · Acc ${acc}%`;
+    }
+
+    function renderQuestion(){
+      const cur = currentQuestion();
+      $("#qTotal").textContent = String(questions.length);
+      $("#qPos").textContent = `Question ${session.ids.length ? (session.cursor+1) : 0}/${session.ids.length}`;
+      const box = $("#opts"); box.innerHTML = "";
+      $("#resultBox").classList.add("hidden");
+      $("#expBlock").style.display = "none";
+
+      if (!cur){
+        $("#qText").innerHTML = `No questions yet. Click <b>Import</b> above. <span class="muted">(Header: No., Question, Option A..D, Answer, Explanation)</span>`;
+        $("#favBtn").classList.remove("on"); $("#favBtn").textContent = "☆";
+        return;
+      }
+      $("#qText").textContent = cur.q;
+      updateFavUI();
+
+      ["A","B","C","D"].forEach(k=>{
+        const label = cur[k] || ""; if (!label) return;
+        const btn = document.createElement("button"); btn.className = "opt";
+        btn.innerHTML = `<div class="pill" style="margin-bottom:4px"><b>${k}</b></div><div>${escapeHtml(label)}</div>`;
+        btn.onclick = () => onSelect(k, btn); box.appendChild(btn);
+      });
+    }
+
+    function updateFavUI(){
+      const cur = currentQuestion();
+      const el = $("#favBtn");
+      if (!cur){ el.classList.remove("on"); el.textContent = "☆"; return; }
+      if (favSet.has(cur.id)){ el.classList.add("on"); el.textContent = "★"; } else { el.classList.remove("on"); el.textContent = "☆"; }
+    }
+
+    function onSelect(letter, el){
+      const cur = currentQuestion(); if (!cur || selected) return;
+      const correct = letter === cur.answer; selected = letter; updateToday(correct);
+      if (correct){ el.classList.add("correct"); wrongSet.delete(cur.id); showReward(); }
+      else { el.classList.add("wrong"); wrongSet.add(cur.id);
+        $$("#opts .opt").forEach(n => { if (n.textContent.includes(cur.answer)) n.classList.add("correct"); });
+      }
+      persist(LS.WRONG, Array.from(wrongSet));
+
+      $("#resultBox").classList.remove("hidden");
+      $("#resultText").innerHTML = correct ? '<span class="pill" style="border-color:#10b981;color:#065f46">Correct!</span>' :
+                                             `<span class="pill" style="border-color:#ef4444;color:#7f1d1d">Incorrect. Correct: ${cur.answer}</span>`;
+      if (cur.explain){ $("#expText").textContent = cur.explain; $("#expBlock").style.display = "block"; }
+      else { $("#expText").textContent = ""; $("#expBlock").style.display = "none"; }
+
+      if (settings.autoNext && !settings.shuffle){ setTimeout(next, 700); }
+      renderHeader();
+    }
+
+    function showReward(){
+      const wrap = document.getElementById("reward");
+      const label = document.getElementById("rewardText");
+      label.textContent = rewardWords[Math.floor(Math.random()*rewardWords.length)];
+      const conf = document.getElementById("confetti"); conf.innerHTML = "";
+      const colors = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#22c55e","#06b6d4"];
+      for (let i=0;i<26;i++){
+        const span = document.createElement("span");
+        span.style.position="absolute"; span.style.top="-10px";
+        span.style.left=Math.round(Math.random()*100)+"%";
+        const size = 6 + Math.round(Math.random()*6);
+        span.style.width = size+"px"; span.style.height = size+"px";
+        span.style.backgroundColor = colors[i%colors.length];
+        span.style.opacity = .9;
+        span.style.borderRadius = (i%3===0) ? "50%" : "2px";
+        span.style.animation = `fall ${800+Math.round(Math.random()*900)}ms ease-out ${Math.round(Math.random()*150)}ms forwards`;
+        conf.appendChild(span);
+      }
+      wrap.classList.remove("hidden");
+      setTimeout(()=>wrap.classList.add("hidden"), 1100);
+    }
+
+    function updateToday(ok){
+      const k = keyToday(); const s = stats[k] || { ok:0, fail:0 }; if (ok) s.ok++; else s.fail++; stats[k] = s; persist(LS.STATS, stats);
+    }
+    function renderChart(){
+      const el = document.getElementById("bar"); el.innerHTML = "";
+      for (let i=6;i>=0;i--){
+        const d = new Date(); d.setDate(d.getDate()-i);
+        const k = dayKey(d); const s = stats[k] || { ok:0, fail:0 };
+        const total = s.ok + s.fail; const ratio = total ? s.ok/total : 0;
+        const h = Math.round(12 + ratio*80);
+        const bar = document.createElement("div"); bar.style.height = h+"px";
+        const info = document.createElement("div"); info.className = "muted"; info.style.textAlign="center"; info.style.fontSize="10px"; info.textContent = k.slice(5);
+        const cell = document.createElement("div"); cell.style.display="flex"; cell.style.flexDirection="column"; cell.style.alignItems="center"; cell.style.gap="4px"; cell.style.flex="1";
+        cell.appendChild(bar); cell.appendChild(info); el.appendChild(cell);
+      }
+    }
+
+    function uniqueById(arr){ const m = new Map(); arr.forEach(q=>{ if(!q.id) q.id = String(m.size+1); m.set(String(q.id), q); }); return Array.from(m.values()); }
+    function keyToday(){ return dayKey(new Date()); }
+    function load(key, def){ try{ const raw = localStorage.getItem(key); return raw?JSON.parse(raw):def; }catch{return def} }
+    function persist(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+    function parseCSV(text){
+      const rows = []; let i=0, cur=[], field="", inQuotes=false;
+      function endField(){ cur.push(field); field=""; }
+      function endRow(){ rows.push(cur); cur=[]; }
+      while(i<text.length){
+        const c = text[i];
+        if (inQuotes){
+          if (c === '"'){ if (text[i+1] === '"'){ field+='"'; i++; } else { inQuotes=false; } }
+          else { field+=c; }
+        } else {
+          if (c === '"'){ inQuotes=true; }
+          else if (c === ','){ endField(); }
+          else if (c === '\n'){ endField(); endRow(); }
+          else if (c === '\r'){ }
+          else { field+=c; }
+        }
+        i++;
+      }
+      endField(); endRow();
+      return rows;
+    }
+    function toCSV(rows){
+      return rows.map(r => r.map(x => {
+        const s = String(x==null?"":x);
+        return /[,\n"]/g.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+      }).join(",")).join("\\n");
+    }
+    function normalizeQuestions(rows){
       if (!rows || !rows.length) return [];
-      const header = rows[0];
-      const idx = buildHeaderIndex(header);
+      const header = rows[0].map(x => String(x||"").trim());
+      const col = (name, aliases) => {
+        const idx = header.findIndex(h => [name, ...aliases].map(a=>a.toLowerCase()).includes(h.toLowerCase()));
+        return idx;
+      };
+      const map = {
+        no: col("No.", ["序号","编号","ID","id","no","NO"]),
+        q: col("Question", ["问题","题干"]),
+        A: col("Option A", ["选项A","A","a"]),
+        B: col("Option B", ["选项B","B","b"]),
+        C: col("Option C", ["选项C","C","c"]),
+        D: col("Option D", ["选项D","D","d"]),
+        ans: col("Answer", ["答案","正确答案","answer"]),
+        exp: col("Explanation", ["说明","解析","解释","备注"]),
+      };
       const out = [];
-      for (let r = 1; r < rows.length; r++) {
-        const row = rows[r] || [];
-        const id = row[idx["No."]] ?? r;
-        const q = (row[idx["Question"]] ?? "").toString().trim();
-        if (!q) continue;
-        const A = (row[idx["Option A"]] ?? "").toString();
-        const B = (row[idx["Option B"]] ?? "").toString();
-        const C = (row[idx["Option C"]] ?? "").toString();
-        const D = (row[idx["Option D"]] ?? "").toString();
-        const answer = normalizeAnswer(row[idx["Answer"]]);
-        const explain = (row[idx["Explanation"]] ?? "").toString();
-        if (!answer) continue;
-        out.push({ id: String(id), q, A, B, C, D, answer, explain });
+      for (let r=1;r<rows.length;r++){
+        const row = rows[r]; if (!row) continue;
+        const id = (map.no>=0? row[map.no] : r) || r;
+        const q = (map.q>=0? row[map.q] : "").toString().trim(); if (!q) continue;
+        const A = ((map.A>=0? row[map.A] : "")||"").toString();
+        const B = ((map.B>=0? row[map.B] : "")||"").toString();
+        const C = ((map.C>=0? row[map.C] : "")||"").toString();
+        const D = ((map.D>=0? row[map.D] : "")||"").toString();
+        let ans = ((map.ans>=0? row[map.ans] : "")||"").toString().trim().toUpperCase();
+        if (!["A","B","C","D"].includes(ans)){ if (ans.startsWith("A")) ans="A"; else if(ans.startsWith("B")) ans="B"; else if(ans.startsWith("C")) ans="C"; else if(ans.startsWith("D")) ans="D"; else ans=""; }
+        const explain = ((map.exp>=0? row[map.exp] : "")||"").toString();
+        if (!ans) continue;
+        out.push({ id:String(id), q, A, B, C, D, answer:ans, explain });
       }
       return out;
     }
-
-    function downloadTemplate() {
-      const data = [
-        ["No.","Question","Option A","Option B","Option C","Option D","Answer","Explanation"],
-        [1,"What does 'benevolent' mean?","kind; charitable","warlike; belligerent","tedious; lengthy","cautious; careful","A","Root bene- means 'good', e.g., benefit"],
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-      XLSX.writeFile(wb, "vocab-template.xlsx");
+    function download(content, filename, type){
+      const blob = new Blob([content], {type});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = filename; a.click(); URL.revokeObjectURL(a.href);
     }
-
-    function exportWrongToExcel(wrongSet, all) {
-      const wrongList = all.filter(q => wrongSet.has(q.id));
-      if (!wrongList.length) { alert("No wrong items to export."); return; }
-      const data = [
-        ["No.","Question","Option A","Option B","Option C","Option D","Answer","Explanation"],
-        ...wrongList.map((q,i)=>[i+1,q.q,q.A,q.B,q.C,q.D,q.answer,q.explain||""]),
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Wrong Set");
-      XLSX.writeFile(wb, `wrong-set_${dayKey()}.xlsx`);
-    }
-
-    function prettyPercent(num, den) {
-      if (!den) return "0%";
-      return `${Math.round((num / den) * 100)}%`;
-    }
-
-    function IconBadge({ children, gradient }) {
-      const cls = gradient || "from-cyan-500 to-blue-500";
-      return (
-        <span className={"w-6 h-6 rounded-full text-white text-[13px] flex items-center justify-center bg-gradient-to-br " + cls}>
-          {children}
-        </span>
-      );
-    }
-
-    function App() {
-      const [settings, setSettings] = useState(loadSettings());
-      const [questions, setQuestions] = useState(loadQuestions());
-      const [wrongSet, setWrongSet] = useState(loadWrong());
-      const [stats, setStats] = useState(loadStats());
-
-      // Reward overlay
-      const rewardWords = ["Excellent!", "Outstanding!", "Genius!", "Brilliant!", "Superb!", "Spectacular!", "Legendary!", "Top-notch!", "To be kobe!"];
-      const [reward, setReward] = useState(null);
-      const [burstKey, setBurstKey] = useState(0);
-
-      const today = dayKey();
-      const todayStat = stats[today] || { ok: 0, fail: 0 };
-
-      const workingSet = React.useMemo(() => {
-        const base = settings.mode === "wrong" ? questions.filter(q => wrongSet.has(q.id)) : questions;
-        const arr = base.slice();
-        if (settings.shuffle) {
-          for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-          }
-        }
-        return arr;
-      }, [questions, wrongSet, settings.mode, settings.shuffle]);
-
-      const [idx, setIdx] = useState(0);
-      const [selected, setSelected] = useState(null); // 'A'|'B'|'C'|'D'|null
-      const [result, setResult] = useState(null);     // 'ok'|'fail'|null
-
-      const cur = workingSet[idx] || null;
-
-      useEffect(()=>{ setIdx(0); setSelected(null); setResult(null); }, [workingSet.length]);
-      useEffect(()=>{ localStorage.setItem(LS.SETTINGS, JSON.stringify(settings)); }, [settings]);
-      useEffect(()=>{ localStorage.setItem(LS.QUESTIONS, JSON.stringify(questions)); }, [questions]);
-      useEffect(()=>{ localStorage.setItem(LS.WRONG, JSON.stringify(Array.from(wrongSet))); }, [wrongSet]);
-      useEffect(()=>{ localStorage.setItem(LS.STATS, JSON.stringify(stats)); }, [stats]);
-
-      function importExcel(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const data = new Uint8Array(e.target.result);
-            const wb = XLSX.read(data, { type: "array" });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const parsed = parseSheetToQuestions(ws);
-            if (!parsed.length) {
-              alert("No valid questions parsed. Please check the header matches the template.");
-              return;
-            }
-            const qmap = new Map();
-            parsed.forEach((q, i) => {
-              const id = q.id || String(i + 1);
-              qmap.set(String(id), { ...q, id: String(id) });
-            });
-            const list = Array.from(qmap.values());
-            setQuestions(list);
-            setWrongSet(new Set());
-            setIdx(0); setSelected(null); setResult(null);
-          } catch (err) {
-            console.error(err);
-            alert("Import failed: " + (err?.message || "Unknown error"));
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      }
-
-      function updateToday(success) {
-        const k = dayKey();
-        const s = { ...(stats[k] || { ok: 0, fail: 0 }) };
-        if (success) s.ok++; else s.fail++;
-        setStats({ ...stats, [k]: s });
-      }
-
-      function triggerReward() {
-        const word = rewardWords[Math.floor(Math.random() * rewardWords.length)];
-        setReward(word);
-        setBurstKey(burstKey + 1);
-        setTimeout(() => setReward(null), 1200);
-      }
-
-      function onSelect(letter) {
-        if (!cur || selected) return;
-        const correct = letter === cur.answer;
-        setSelected(letter);
-        setResult(correct ? "ok" : "fail");
-        updateToday(correct);
-        setWrongSet(prev => {
-          const copy = new Set(prev);
-          if (correct) copy.delete(cur.id); else copy.add(cur.id);
-          return copy;
-        });
-        if (correct) triggerReward();
-        if (settings.autoNext) {
-          setTimeout(() => next(), 700);
-        }
-      }
-
-      function next() {
-        if (idx >= workingSet.length - 1) { setIdx(0); }
-        else { setIdx(idx + 1); }
-        setSelected(null); setResult(null);
-      }
-
-      function resetAll() {
-        if (!confirm("Are you sure to clear ALL data (questions / wrong set / statistics)?")) return;
-        setQuestions([]); setWrongSet(new Set()); setStats({});
-        setIdx(0); setSelected(null); setResult(null);
-      }
-
-      useEffect(() => {
-        if (questions.length === 0) {
-          setQuestions([
-            { id: "1", q: "What is the meaning of 'meticulous'?", A: "careless", B: "careful and precise", C: "swift", D: "generous", answer: "B", explain: "Doing things with great attention to detail." },
-            { id: "2", q: "Which word is closest in meaning to 'alleviate'?", A: "worsen", B: "ignore", C: "relieve", D: "describe", answer: "C", explain: "alleviate = make (suffering) less severe." },
-          ]);
-        }
-      }, []);
-
-      const last7 = useMemo(() => {
-        const arr = [];
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const k = dayKey(d);
-          const s = stats[k] || { ok: 0, fail: 0 };
-          arr.push({ k, ...s });
-        }
-        return arr;
-      }, [stats]);
-
-      const totalAnswered = (todayStat.ok || 0) + (todayStat.fail || 0);
-      const accuracy = prettyPercent(todayStat.ok, totalAnswered);
-      const fileRef = useRef(null);
-
-      const confettiColors = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#22c55e","#06b6d4"];
-      const confettiPieces = Array.from({ length: 26 }).map((_, i) => ({
-        left: Math.round(Math.random() * 100),
-        delay: Math.round(Math.random() * 150),
-        duration: 800 + Math.round(Math.random() * 900),
-        size: 6 + Math.round(Math.random() * 6),
-        color: confettiColors[i % confettiColors.length],
-        rotate: Math.round(Math.random() * 360),
-      }));
-
-      return (
-        <div className="flex flex-col items-center">
-          {/* Reward overlay */}
-          {reward && (
-            <div className="fixed inset-0 z-50 pointer-events-none">
-              <div className="absolute inset-0 overflow-hidden" key={burstKey}>
-                {confettiPieces.map((p, i) => (
-                  <span key={i}
-                    style={{
-                      position: "absolute",
-                      top: "-10px",
-                      left: p.left + "%",
-                      width: p.size + "px",
-                      height: p.size + "px",
-                      backgroundColor: p.color,
-                      transform: `rotate(${p.rotate}deg)`,
-                      animation: `confetti-fall ${p.duration}ms ease-out ${p.delay}ms forwards`,
-                      borderRadius: (i % 3 === 0) ? "50%" : "2px",
-                      opacity: 0.9,
-                    }}/>
-                ))}
-              </div>
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="animate-pop text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 via-amber-500 to-emerald-500 drop-shadow">
-                  {reward}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <header className="w-full sticky top-0 z-10 backdrop-blur bg-white/70 border-b border-slate-200">
-            <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-sky-500 to-cyan-400 text-white flex items-center justify-center shadow-sm">📘</span>
-                <div className="leading-tight">
-                  <h1 className="text-lg font-bold">Vocab Trainer</h1>
-                  <div className="text-[11px] text-slate-500">by <span className="font-semibold">to be kobe</span></div>
-                </div>
-              </div>
-              <div className="text-right text-xs leading-4">
-                <div className="font-semibold">Today: {todayStat.ok}✅ / {todayStat.fail}❌</div>
-                <div className="text-slate-500">Accuracy {accuracy}</div>
-              </div>
-            </div>
-          </header>
-
-          <main className="w-full max-w-md px-4 pb-28 pt-4">
-            {/* Import / Actions */}
-            <section className="mb-4 grid grid-cols-3 gap-2">
-              <button
-                className="col-span-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white py-2 text-sm active-press shadow-sm"
-                onClick={() => fileRef.current?.click()}
-              >
-                <IconBadge gradient="from-emerald-500 to-teal-500">⬆️</IconBadge>
-                Import
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) importExcel(f);
-                  e.currentTarget.value = "";
-                }}
-              />
-
-              <button
-                className="col-span-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white py-2 text-sm active-press shadow-sm"
-                onClick={downloadTemplate}
-              >
-                <IconBadge gradient="from-sky-500 to-indigo-500">📥</IconBadge>
-                Template
-              </button>
-
-              <button
-                className="col-span-1 flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white py-2 text-sm active-press shadow-sm"
-                onClick={() => exportWrongToExcel(wrongSet, questions)}
-              >
-                <IconBadge gradient="from-rose-500 to-pink-500">🐛</IconBadge>
-                Wrong Set
-              </button>
-            </section>
-
-            {/* Settings */}
-            <section className="mb-4 grid grid-cols-3 gap-2 text-sm">
-              <button
-                className={(settings.shuffle ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300") + " flex items-center justify-center gap-2 rounded-2xl border py-2 active-press shadow-sm"}
-                onClick={() => setSettings((s) => ({ ...s, shuffle: !s.shuffle }))}
-              >
-                <IconBadge gradient="from-violet-500 to-fuchsia-500">🔀</IconBadge>
-                Shuffle
-              </button>
-              <button
-                className={(settings.mode === "wrong" ? "bg-rose-600 text-white border-rose-600" : "bg-white border-slate-300") + " flex items-center justify-center gap-2 rounded-2xl border py-2 active-press shadow-sm"}
-                onClick={() => setSettings((s) => ({ ...s, mode: s.mode === "wrong" ? "all" : "wrong" }))}
-              >
-                <IconBadge gradient="from-amber-500 to-orange-500">📈</IconBadge>
-                {settings.mode === "wrong" ? "All" : "Wrong"}
-              </button>
-              <button
-                className={(settings.autoNext ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-slate-300") + " flex items-center justify-center gap-2 rounded-2xl border py-2 active-press shadow-sm"}
-                onClick={() => setSettings((s) => ({ ...s, autoNext: !s.autoNext }))}
-              >
-                <IconBadge gradient="from-cyan-500 to-teal-500">⚙️</IconBadge>
-                Auto Next
-              </button>
-            </section>
-
-            {/* Question Card */}
-            <section className="mb-4">
-              <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-4">
-                <div className="flex items-center justify-between mb-2 text-xs text-slate-500">
-                  <div>Question {workingSet.length ? idx + 1 : 0} / {workingSet.length}</div>
-                  <div>Total: {questions.length}</div>
-                </div>
-
-                {cur ? (
-                  <>
-                    <div className="text-base leading-relaxed font-medium mb-3">{cur.q}</div>
-                    <div className="space-y-2">
-                      {["A","B","C","D"].map((k)=>{
-                        const label = cur[k] || "";
-                        if (!label) return null;
-                        const chosen = selected === k;
-                        const isCorrect = cur.answer === k;
-                        const state = selected ? (isCorrect ? "correct" : chosen ? "wrong" : "idle") : "idle";
-                        const cls = state === "correct" ? "border-emerald-600 bg-emerald-50"
-                                  : state === "wrong" ? "border-rose-600 bg-rose-50"
-                                  : "border-slate-300 bg-white hover:bg-slate-50";
-                        return (
-                          <button key={k}
-                            className={"w-full text-left rounded-2xl border p-3 active-press transition " + cls}
-                            onClick={()=>onSelect(k)} disabled={!!selected}>
-                            <div className="flex items-start gap-2">
-                              <div className="mt-0.5 w-5 h-5 flex items-center justify-center rounded-full border text-xs font-bold">{k}</div>
-                              <div className="flex-1 leading-relaxed">{label}</div>
-                              {selected && cur.answer === k && (<span className="text-base">✅</span>)}
-                              {selected && selected === k && cur.answer !== k && (<span className="text-base">❌</span>)}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {selected && (
-                      <div className={"mt-3 rounded-2xl border p-3 text-sm " + (result === "ok" ? "border-emerald-600 bg-emerald-50" : "border-rose-600 bg-rose-50")}>
-                        {result === "ok" ? "Correct!" : "Incorrect. Correct answer: " + cur.answer}
-                        {cur.explain && (
-                          <details className="mt-2">
-                            <summary className="cursor-pointer select-none">Show Explanation</summary>
-                            <div className="mt-1 text-slate-700 leading-relaxed whitespace-pre-wrap">{cur.explain}</div>
-                          </details>
-                        )}
-                        <div className="mt-2 flex gap-2">
-                          <button className="flex-1 rounded-xl bg-slate-900 text-white py-2 active-press" onClick={next}>Next</button>
-                          <button className="flex-1 rounded-xl border border-slate-300 bg-white py-2 active-press" onClick={()=>{ setSelected(null); setResult(null); }}>
-                            Retry
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center text-slate-500 py-16">
-                    <div className="mb-2">No questions yet. Click <b>Import</b> above.</div>
-                    <div className="text-xs">Supports .xlsx (first row is header): No. / Question / Option A / Option B / Option C / Option D / Answer / Explanation</div>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* 7-day Overview */}
-            <section className="mb-4">
-              <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-4">
-                <div className="flex items-center gap-2 mb-3 text-sm font-semibold">
-                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center">📊</span>
-                  Last 7 Days
-                </div>
-                <div className="flex items-end justify-between gap-2 h-24">
-                  {last7.map((d) => {
-                    const total = (d.ok || 0) + (d.fail || 0);
-                    const ratio = total === 0 ? 0 : d.ok / total;
-                    const h = Math.round(12 + ratio * 80);
-                    return (
-                      <div key={d.k} className="flex-1 flex flex-col items-center gap-1">
-                        <div className="w-full rounded-t-xl bg-slate-200" style={{ height: h + "px" }}></div>
-                        <div className="text-[10px] text-slate-500">{d.k.slice(5)}</div>
-                        <div className="text-[10px] text-slate-500">{total} items</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-
-            <section className="mb-24">
-              <button
-                className="w-full flex items-center justify-center gap-2 rounded-2xl border border-rose-300 bg-white py-2 text-sm active-press shadow-sm"
-                onClick={resetAll}
-              >
-                <IconBadge gradient="from-rose-500 to-pink-500">♻️</IconBadge>
-                Reset All Data
-              </button>
-            </section>
-          </main>
-
-          <footer className="fixed bottom-0 w-full bg-white border-t border-slate-200">
-            <div className="max-w-md mx-auto px-4 py-2 text-center text-[11px] text-slate-500">
-              Data stored locally (localStorage). — <span className="font-medium">to be kobe</span>
-            </div>
-          </footer>
-        </div>
-      );
-    }
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[c])); }
   </script>
 </body>
 </html>

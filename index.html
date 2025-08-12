@@ -16,10 +16,11 @@
     .card{background:#fff;border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:14px}
     .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 
-    /* Buttons – beautified (gradients, soft shadows) */
+    /* Buttons */
     .btn{border:1px solid var(--bd);background:#fff;border-radius:14px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;user-select:none;transition:transform .05s ease, box-shadow .2s ease}
     .btn:active{transform:scale(.985)}
     .btn.primary{background:#0f172a;color:#fff;border-color:#0f172a}
+    .btn.wide{width:100%;padding:14px 16px;font-size:16px;border-radius:16px}
     .btn.grad{border:none;color:#fff;box-shadow:0 6px 14px rgba(0,0,0,.08), inset 0 1px rgba(255,255,255,.2)}
     .btn.grad.green{background:linear-gradient(135deg,#22c55e,#06b6d4)}
     .btn.grad.blue{background:linear-gradient(135deg,#3b82f6,#8b5cf6)}
@@ -36,10 +37,10 @@
     .icon{width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;color:#fff}
     .i1{background:linear-gradient(135deg,#22c55e,#06b6d4)} .i2{background:linear-gradient(135deg,#3b82f6,#8b5cf6)} .i3{background:linear-gradient(135deg,#ef4444,#f97316)}
 
-    /* Options: single line, no wrap, ellipsis */
-    .opt{width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:14px;padding:10px;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .opt .badge{width:22px;height:22px;border-radius:999px;background:#fff;color:#0f172a;border:1px solid var(--bd);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:none}
-    .opt .text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+    /* Options: single line, bigger font, left-aligned */
+    .opt{width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:14px;padding:12px;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;justify-content:flex-start}
+    .opt .badge{width:24px;height:24px;border-radius:999px;background:#fff;color:#0f172a;border:1px solid var(--bd);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:none;flex:0 0 auto}
+    .opt .text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:16px;line-height:1.6}
     .opt.correct{background:#ecfdf5;border-color:#059669}
     .opt.wrong{background:#fef2f2;border-color:#dc2626}
 
@@ -51,7 +52,7 @@
 
     .fav { cursor:pointer; user-select:none; font-size:18px; }
     .fav.on { color:#f59e0b; text-shadow:0 1px 2px rgba(0,0,0,.08); }
-    .toolbar { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } /* import 区 3 列 */
+    .toolbar { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } /* Import 区 */
   </style>
 </head>
 <body>
@@ -69,7 +70,7 @@
   </header>
 
   <div class="container">
-    <!-- Import 区按钮美化：渐变色 -->
+    <!-- 美化后的 Import 区 -->
     <section class="toolbar">
       <button class="btn grad green" id="btnImport">⬆️ Import</button>
       <input type="file" id="file" class="hidden" accept=".xlsx,.csv,.json" />
@@ -97,6 +98,12 @@
 
         <div id="opts" class="gap" style="flex-direction:column; margin-top:8px;"></div>
 
+        <!-- 新增：Next 放在选项下面的整行大按钮（答题后出现） -->
+        <div id="nextRow" class="hidden" style="margin-top:10px">
+          <button class="btn primary wide" id="btnNext">Next ⟶</button>
+        </div>
+
+        <!-- 结果与解释 -->
         <div id="resultBox" class="hidden" style="margin-top:10px">
           <div id="resultText" class="pill">—</div>
           <div id="expBlock" class="card" style="margin-top:8px; padding:10px; border-radius:12px;">
@@ -105,7 +112,6 @@
           </div>
           <div class="gap" style="margin-top:8px">
             <button class="btn" id="btnPrev">⟵ Prev</button>
-            <button class="btn primary" id="btnNext">Next ⟶</button>
             <button class="btn" id="btnRetry">Retry</button>
             <button class="btn" id="btnJump">🔎 Jump</button>
           </div>
@@ -231,7 +237,7 @@
     let favSet = new Set(load(LS.FAV, []));
     let stats = load(LS.STATS, {});
 
-    // 固定会话序列（解决 Shuffle 错乱），只在模式/Shuffle 切换或导入时重建
+    // 固定会话序列（防 Shuffle 乱序），只在模式/Shuffle 切换或导入时重建
     let session = { ids: [], cursor: 0 };
     let selected = null;
     let autoTimer = null;
@@ -298,6 +304,7 @@
       rebuildSession({ preserveCurrent:false }); selected = null; renderAll();
     };
 
+    // 按钮：Next 放在选项下方
     $("#btnNext").onclick = () => { next(); };
     $("#btnPrev").onclick = () => { prev(); };
     $("#btnRetry").onclick = () => { selected = null; renderQuestion(); };
@@ -378,6 +385,7 @@
       const box = $("#opts"); box.innerHTML = "";
       $("#resultBox").classList.add("hidden");
       $("#expBlock").style.display = "none";
+      $("#nextRow").classList.add("hidden");
 
       if (!cur){
         $("#qText").innerHTML = `No questions yet. Click <b>Import</b> above. <span class="muted">(Header: No., Question, Option A..D, Answer, Explanation)</span>`;
@@ -411,18 +419,21 @@
       }
       persist(LS.WRONG, Array.from(wrongSet));
 
+      // 展示“Next”整行按钮（放在选项下方）
+      $("#nextRow").classList.remove("hidden");
+
+      // 展示结果与解释（默认展开）
       $("#resultBox").classList.remove("hidden");
       $("#resultText").innerHTML = correct ? '<span class="pill" style="border-color:#10b981;color:#065f46">Correct!</span>' :
                                              `<span class="pill" style="border-color:#ef4444;color:#7f1d1d">Incorrect. Correct: ${cur.answer}</span>`;
       if (cur.explain){ $("#expText").textContent = cur.explain; $("#expBlock").style.display = "block"; }
       else { $("#expText").textContent = ""; $("#expBlock").style.display = "none"; }
 
-      // Auto Next：仅在非 Shuffle 下启用；并做快照校验 + 防抖
+      // Auto Next：仅在非 Shuffle 下启用；快照校验 + 防抖
       clearTimeout(autoTimer);
       if (settings.autoNext && !settings.shuffle){
         const snapCursor = session.cursor, snapId = cur.id;
         autoTimer = setTimeout(() => {
-          // 仍在同一题、同一游标，才跳转
           if (session.cursor === snapCursor && currentQuestion()?.id === snapId){
             next();
           }

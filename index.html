@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <title>Vocab Trainer — to be kobe (Offline .xlsx, Single HTML)</title>
   <style>
-    :root{ --bd:#e5e7eb; --txt:#0f172a; --muted:#64748b; }
-    *{box-sizing:border-box} html,body{margin:0;padding:0;background:linear-gradient(#fff,#f8fafc);color:var(--txt);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    :root{ --bd:#e5e7eb; --txt:#0f172a; --muted:#64748b; --bg:#ffffff; }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;padding:0;background:linear-gradient(#fff,#f8fafc);color:var(--txt);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
     .container{max-width:760px;margin:0 auto;padding:12px 16px 96px}
     header{position:sticky;top:0;background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--bd);z-index:10}
     header .row{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:760px;margin:0 auto;padding:10px 16px}
@@ -14,28 +15,43 @@
     .badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:10px;color:#fff;background:linear-gradient(135deg,#6366f1,#06b6d4);box-shadow:0 1px 2px rgba(0,0,0,.06)}
     .card{background:#fff;border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:14px}
     .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .btn{border:1px solid var(--bd);background:#fff;border-radius:14px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
-    .btn:active{transform:scale(.99)}
+
+    /* Buttons – beautified (gradients, soft shadows) */
+    .btn{border:1px solid var(--bd);background:#fff;border-radius:14px;padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;user-select:none;transition:transform .05s ease, box-shadow .2s ease}
+    .btn:active{transform:scale(.985)}
     .btn.primary{background:#0f172a;color:#fff;border-color:#0f172a}
-    .opt{width:100%;text-align:left;border:1px solid var(--bd);border-radius:14px;padding:10px}
-    .opt.correct{background:#ecfdf5;border-color:#059669}
-    .opt.wrong{background:#fef2f2;border-color:#dc2626}
+    .btn.grad{border:none;color:#fff;box-shadow:0 6px 14px rgba(0,0,0,.08), inset 0 1px rgba(255,255,255,.2)}
+    .btn.grad.green{background:linear-gradient(135deg,#22c55e,#06b6d4)}
+    .btn.grad.blue{background:linear-gradient(135deg,#3b82f6,#8b5cf6)}
+    .btn.grad.orange{background:linear-gradient(135deg,#f59e0b,#ef4444)}
+    .btn.ghost{background:#fff;border:1px solid var(--bd);}
+
     .muted{color:var(--muted);font-size:12px}
     .row{display:flex;align-items:center;justify-content:space-between}
     .gap{display:flex;gap:8px}
     .hidden{display:none}
     .bar{height:100px;display:flex;gap:8px;align-items:flex-end;justify-content:space-between}
     .bar>div{flex:1;background:#e2e8f0;border-radius:8px 8px 0 0}
-    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--bd);font-size:12px}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--bd);font-size:12px;background:#fff}
     .icon{width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;color:#fff}
     .i1{background:linear-gradient(135deg,#22c55e,#06b6d4)} .i2{background:linear-gradient(135deg,#3b82f6,#8b5cf6)} .i3{background:linear-gradient(135deg,#ef4444,#f97316)}
+
+    /* Options: single line, no wrap, ellipsis */
+    .opt{width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--bd);border-radius:14px;padding:10px;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .opt .badge{width:22px;height:22px;border-radius:999px;background:#fff;color:#0f172a;border:1px solid var(--bd);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:none}
+    .opt .text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .opt.correct{background:#ecfdf5;border-color:#059669}
+    .opt.wrong{background:#fef2f2;border-color:#dc2626}
+
+    /* Reward animation */
     @keyframes pop{0%{transform:scale(.7);opacity:0}20%{transform:scale(1.1);opacity:1}80%{transform:scale(1);opacity:1}100%{transform:scale(.9);opacity:0}}
     .reward{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:50}
     .reward .text{font-size:34px;font-weight:800;animation:pop 1.1s ease-out forwards;background:linear-gradient(90deg,#ec4899,#f59e0b,#22c55e);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 1px 2px rgba(0,0,0,.08)}
     @keyframes fall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
     .fav { cursor:pointer; user-select:none; font-size:18px; }
     .fav.on { color:#f59e0b; text-shadow:0 1px 2px rgba(0,0,0,.08); }
-    .toolbar { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    .toolbar { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } /* import 区 3 列 */
   </style>
 </head>
 <body>
@@ -53,17 +69,18 @@
   </header>
 
   <div class="container">
+    <!-- Import 区按钮美化：渐变色 -->
     <section class="toolbar">
-      <button class="btn" id="btnImport"><span class="icon i1">⬆️</span>Import</button>
+      <button class="btn grad green" id="btnImport">⬆️ Import</button>
       <input type="file" id="file" class="hidden" accept=".xlsx,.csv,.json" />
-      <button class="btn" id="btnTemplate"><span class="icon i2">📥</span>Template</button>
-      <button class="btn" id="btnMode"><span class="icon i3">🔁</span><span id="modeLabel">Mode: All</span></button>
+      <button class="btn grad blue" id="btnTemplate">📥 Template</button>
+      <button class="btn grad orange" id="btnMode"><span>🔁</span><span id="modeLabel">Mode: All</span></button>
     </section>
 
     <section class="grid-3" style="margin-top:8px">
-      <button class="btn" id="btnShuffle">🔀 Shuffle: OFF</button>
-      <button class="btn" id="btnAuto">⚙️ Auto Next: OFF</button>
-      <button class="btn" id="btnReset">♻️ Reset</button>
+      <button class="btn ghost" id="btnShuffle">🔀 Shuffle: OFF</button>
+      <button class="btn ghost" id="btnAuto">⚙️ Auto Next: OFF</button>
+      <button class="btn ghost" id="btnReset">♻️ Reset</button>
     </section>
 
     <section style="margin-top:10px">
@@ -112,6 +129,7 @@
   </div>
 
   <script>
+    /************ Minimal ZIP + XLSX reader (no external deps) ************/
     const td = new TextDecoder("utf-8");
     function readU16(dv, off){ return dv.getUint16(off, true); }
     function readU32(dv, off){ return dv.getUint32(off, true); }
@@ -200,6 +218,7 @@
       const sheet = xml(td.decode(sheetBin)); const rows = sheetTo2DArray(sheet, sst); return rows;
     }
 
+    /************ App state ************/
     const LS = { QUESTIONS:"vocab_questions_v1", WRONG:"vocab_wrong_v1", STATS:"vocab_stats_v1", SETTINGS:"vocab_settings_v1", FAV:"vocab_fav_v1" };
     const $ = sel => document.querySelector(sel);
     const $$ = sel => Array.from(document.querySelectorAll(sel));
@@ -212,8 +231,10 @@
     let favSet = new Set(load(LS.FAV, []));
     let stats = load(LS.STATS, {});
 
+    // 固定会话序列（解决 Shuffle 错乱），只在模式/Shuffle 切换或导入时重建
     let session = { ids: [], cursor: 0 };
     let selected = null;
+    let autoTimer = null;
 
     if (questions.length === 0) {
       questions = [
@@ -226,6 +247,7 @@
     rebuildSession({ preserveCurrent:false });
     renderAll();
 
+    /************ UI bindings ************/
     $("#btnImport").onclick = () => $("#file").click();
     $("#file").onchange = async (e) => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -294,18 +316,17 @@
       if (favSet.has(cur.id)) favSet.delete(cur.id); else favSet.add(cur.id);
       persist(LS.FAV, Array.from(favSet));
       updateFavUI();
-      if (settings.mode === "fav" && !favSet.has(cur.id)){
-        // stay until Next
-      }
     };
 
+    /************ Session helpers ************/
     function computeModeIds(){
       if (settings.mode === "all") return questions.map(q=>q.id);
       if (settings.mode === "wrong") return questions.filter(q=>wrongSet.has(q.id)).map(q=>q.id);
-      return questions.filter(q=>favSet.has(q.id)).map(q=>q.id);
+      return questions.filter(q=>favSet.has(q.id)).map(q=>q.id); // fav
     }
     function shuffleInPlace(arr){ for (let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
     function rebuildSession({ preserveCurrent }){
+      clearTimeout(autoTimer); autoTimer=null;
       const curId = currentQuestion()?.id || null;
       const ids = computeModeIds();
       if (settings.shuffle) shuffleInPlace(ids);
@@ -336,6 +357,7 @@
       return questions.find(q => q.id === id) || null;
     }
 
+    /************ Render ************/
     function renderAll(){
       renderHeader(); renderQuestion(); renderChart();
       $("#btnShuffle").innerHTML = settings.shuffle ? "🔀 Shuffle: ON" : "🔀 Shuffle: OFF";
@@ -368,7 +390,7 @@
       ["A","B","C","D"].forEach(k=>{
         const label = cur[k] || ""; if (!label) return;
         const btn = document.createElement("button"); btn.className = "opt";
-        btn.innerHTML = `<div class="pill" style="margin-bottom:4px"><b>${k}</b></div><div>${escapeHtml(label)}</div>`;
+        btn.innerHTML = `<span class="badge">${k}</span><span class="text">${escapeHtml(label)}</span>`;
         btn.onclick = () => onSelect(k, btn); box.appendChild(btn);
       });
     }
@@ -395,10 +417,21 @@
       if (cur.explain){ $("#expText").textContent = cur.explain; $("#expBlock").style.display = "block"; }
       else { $("#expText").textContent = ""; $("#expBlock").style.display = "none"; }
 
-      if (settings.autoNext && !settings.shuffle){ setTimeout(next, 700); }
+      // Auto Next：仅在非 Shuffle 下启用；并做快照校验 + 防抖
+      clearTimeout(autoTimer);
+      if (settings.autoNext && !settings.shuffle){
+        const snapCursor = session.cursor, snapId = cur.id;
+        autoTimer = setTimeout(() => {
+          // 仍在同一题、同一游标，才跳转
+          if (session.cursor === snapCursor && currentQuestion()?.id === snapId){
+            next();
+          }
+        }, 750);
+      }
       renderHeader();
     }
 
+    /************ Reward ************/
     function showReward(){
       const wrap = document.getElementById("reward");
       const label = document.getElementById("rewardText");
@@ -421,6 +454,7 @@
       setTimeout(()=>wrap.classList.add("hidden"), 1100);
     }
 
+    /************ Stats & Chart ************/
     function updateToday(ok){
       const k = keyToday(); const s = stats[k] || { ok:0, fail:0 }; if (ok) s.ok++; else s.fail++; stats[k] = s; persist(LS.STATS, stats);
     }
@@ -438,6 +472,7 @@
       }
     }
 
+    /************ Utils ************/
     function uniqueById(arr){ const m = new Map(); arr.forEach(q=>{ if(!q.id) q.id = String(m.size+1); m.set(String(q.id), q); }); return Array.from(m.values()); }
     function keyToday(){ return dayKey(new Date()); }
     function load(key, def){ try{ const raw = localStorage.getItem(key); return raw?JSON.parse(raw):def; }catch{return def} }

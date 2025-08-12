@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Vocab Trainer — to be kobe (Offline .xlsx, Single HTML)</title>
+  <title>TO BE MASTER</title>
   <style>
     :root{ --bd:#e5e7eb; --txt:#0f172a; --muted:#64748b; --bg:#ffffff; }
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -61,7 +61,7 @@
       <div class="gap">
         <span class="badge">📘</span>
         <div>
-          <h1>Vocab Trainer <span class="muted">— to be kobe</span></h1>
+          <h1>TO BE MASTER<span class="muted"></span></h1>
         </div>
       </div>
       <div class="muted" id="todayStat"></div>
@@ -429,15 +429,16 @@
       else { $("#expText").textContent = ""; $("#expBlock").style.display = "none"; }
 
       // Auto Next：仅在非 Shuffle 下启用；快照校验 + 防抖
-      clearTimeout(autoTimer);
-      if (settings.autoNext && !settings.shuffle){
-        const snapCursor = session.cursor, snapId = cur.id;
-        autoTimer = setTimeout(() => {
-          if (session.cursor === snapCursor && currentQuestion()?.id === snapId){
-            next();
-          }
-        }, 750);
-      }
+        clearTimeout(autoTimer);
+        if (settings.autoNext && !settings.shuffle && correct) {
+            const snapCursor = session.cursor, snapId = cur.id;
+            autoTimer = setTimeout(() => {
+                if (session.cursor === snapCursor && currentQuestion()?.id === snapId) {
+                    next();
+                }
+            }, 3000); // 3s
+        }
+
       renderHeader();
     }
 
